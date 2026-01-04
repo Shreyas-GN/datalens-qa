@@ -8,6 +8,7 @@ from uploads.services.file_validation import (
 )
 from uploads.services.file_storage import store_uploaded_file
 from uploads.services.schema_validation import validate_schema
+from uploads.services.data_quality import run_data_quality_checks
 
 
 @csrf_exempt
@@ -15,22 +16,27 @@ from uploads.services.schema_validation import validate_schema
 def upload_file(request):
     uploaded_file = request.FILES.get("file")
 
+    # 1️⃣ File-level validation
     try:
         validate_uploaded_file(uploaded_file)
     except FileValidationError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-    # Store the file
+    # 2️⃣ Store uploaded file
     file_info = store_uploaded_file(uploaded_file)
 
-    # Validate schema
+    # 3️⃣ Schema validation
     schema_result = validate_schema(file_info["path"])
+
+    # 4️⃣ Data quality analysis (row-level + summary)
+    quality_report = run_data_quality_checks(file_info["path"])
 
     return JsonResponse(
         {
-            "message": "File uploaded and validated",
+            "message": "File uploaded, validated, and analyzed",
             "file": file_info,
             "schema_validation": schema_result,
+            "data_quality": quality_report,
         },
         status=200
     )
